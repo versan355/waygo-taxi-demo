@@ -1,22 +1,47 @@
 (function (root) {
   'use strict';
   // ISO 3166-1 country codes and ISO 4217 currencies. Rates are demo values.
-  const rows = [
-    ['ru','RUB',250,32], ['by','BYN',6,1.2], ['kz','KZT',900,120],
-    ['de','EUR',5,2.2], ['gb','GBP',4,1.8], ['es','EUR',4,1.9],
-    ['ca','CAD',4,1.7], ['us','USD',4,2.5], ['no','NOK',55,3.2],
-    ['fi','EUR',5,2.1], ['lt','EUR',4,1.8], ['pl','PLN',18,2.5],
-    ['fr','EUR',5,2.3], ['tm','TMT',25,1.5], ['in','INR',120,18],
-    ['cm','XAF',700,120], ['ng','NGN',1800,95], ['bf','XOF',700,110],
-    ['ae','AED',18,2.2], ['tr','TRY',180,14]
-  ];
+  // Demo rates by currency: [base pickup, per-km rate]
+  const currencyRates = {
+    EUR: [5, 2.2], GBP: [4, 1.8], USD: [4, 2.5], CAD: [4, 1.7],
+    RUB: [250, 32], BYN: [6, 1.2], KZT: [900, 120], PLN: [18, 2.5],
+    CZK: [80, 20], HUF: [1200, 300], RON: [20, 5], BGN: [8, 2],
+    UAH: [120, 15], MDL: [80, 10], GEL: [10, 2.5], AMD: [1600, 200],
+    AZN: [6, 1.5], KGS: [300, 40], UZS: [40000, 5000], TJS: [40, 5],
+    TMT: [25, 1.5], NOK: [55, 3.2], SEK: [50, 3], DKK: [35, 2.5],
+    ISK: [800, 50], CHF: [6, 2.5], TRY: [180, 14], AED: [18, 2.2],
+    SAR: [15, 2], QAR: [15, 2], KWD: [1.2, 0.25], BHD: [1.5, 0.3],
+    OMR: [1.5, 0.3], JOD: [3, 0.6], ILS: [15, 2.5], EGP: [120, 15],
+    MAD: [40, 5], DZD: [500, 60], TND: [12, 1.8], LYD: [18, 2.5],
+    XOF: [700, 110], XAF: [700, 120], NGN: [1800, 95], GHS: [40, 6],
+    KES: [400, 50], TZS: [9000, 1200], UGX: [14000, 1800], ZAR: [50, 7],
+    MUR: [150, 20], SCR: [60, 8], INR: [120, 18], PKR: [400, 50],
+    BDT: [300, 40], LKR: [800, 100], NPR: [200, 25], BTN: [300, 40],
+    AFN: [300, 40], MMK: [7000, 900], THB: [120, 15], VND: [90000, 12000],
+    KHR: [16000, 2000], LAK: [80000, 10000], MYR: [15, 2.2], SGD: [6, 1.8],
+    BND: [6, 1.8], PHP: [200, 25], IDR: [60000, 8000], CNY: [25, 4],
+    HKD: [30, 4], TWD: [120, 18], MOP: [30, 4], JPY: [600, 80],
+    KRW: [5000, 700], MNT: [12000, 1600], AUD: [6, 2.2], NZD: [6, 2.2],
+    FJD: [8, 1.5], PGK: [12, 2], WST: [10, 1.5], TOP: [8, 1.5],
+    BRL: [20, 3], ARS: [4000, 500], CLP: [4000, 500], COP: [16000, 2000],
+    PEN: [15, 2.2], BOB: [28, 4], PYG: [28000, 3500], UYU: [160, 20],
+    MXN: [80, 12], GTQ: [30, 4], HNL: [100, 12], NIO: [140, 18],
+    CRC: [2400, 300], PAB: [4, 2.5], DOP: [200, 25], HTG: [500, 60],
+    JMD: [600, 75], BBD: [8, 1.2], TTD: [28, 4], XCD: [11, 1.5],
+    AWG: [7, 1], BMD: [5, 1.5], BSD: [4, 2.5], KYD: [3.5, 0.8],
+    BZD: [8, 1.2], SRD: [60, 8], GYD: [800, 100]
+  };
   const currencyData = typeof module === 'object' && module.exports ? require('./country-currencies.js') : root.WaygoCurrencies;
   const names = new Intl.DisplayNames(['ru'], { type: 'region' });
-  const countries = Object.fromEntries(Object.entries(currencyData).map(([code,currencies]) => [code, {
-    code, currency:currencies[0], currencies, name: names.of(code.toUpperCase()),
-    flag: [...code.toUpperCase()].map(c => String.fromCodePoint(c.charCodeAt(0)+127397)).join('')
-  }]));
-  rows.forEach(([code,currency,base,km])=>Object.assign(countries[code],{currency,base,km}));
+  const countries = Object.fromEntries(Object.entries(currencyData).map(([code,currencies]) => {
+    const currency = currencies[0];
+    const [base, km] = currencyRates[currency] || [null, null];
+    return [code, {
+      code, currency, currencies, name: names.of(code.toUpperCase()),
+      flag: [...code.toUpperCase()].map(c => String.fromCodePoint(c.charCodeAt(0)+127397)).join(''),
+      base, km
+    }];
+  }));
   const tariffs = {econom:{name:'Эконом',mult:1},comfort:{name:'Комфорт',mult:1.55},business:{name:'Бизнес',mult:2.6}};
   function countryInfo(code, fallbackName) {
     const key = String(code || '').toLowerCase();
