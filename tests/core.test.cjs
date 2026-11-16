@@ -2,13 +2,16 @@ const {test}=require('node:test');
 const assert=require('node:assert/strict');
 const C=require('../assets/waygo-core.js');
 
-test('ISO country/currency distinctions and all original demo markets',()=>{
+test('ISO country/currency distinctions and demo rates for all currencies',()=>{
   assert.ok(Object.keys(C.countries).length>240);
   assert.equal(C.countries.bg.currency,'EUR');
   assert.equal(C.countries.za.currency,'ZAR');
   assert.equal(C.currencyText(C.countries.ps),'ILS / JOD');
   for(const [code,currency] of Object.entries({ru:'RUB',by:'BYN',kz:'KZT',ca:'CAD',us:'USD',ng:'NGN',bf:'XOF',cm:'XAF',ae:'AED',no:'NOK',fi:'EUR',in:'INR',tm:'TMT'}))assert.equal(C.countryInfo(code).currency,currency);
-  assert.equal(Object.values(C.countries).filter(c=>Number.isFinite(c.base)).length,20);
+  // All countries with known currencies now have demo rates
+  assert.ok(Object.values(C.countries).filter(c=>Number.isFinite(c.base)).length>200);
+  assert.ok(Number.isFinite(C.countries.ee.base)); // Estonia (EUR) has demo rates
+  assert.ok(Number.isFinite(C.countries.jp.base)); // Japan (JPY) has demo rates
 });
 test('country comes from geocoder metadata even if city name is ambiguous',()=>{
   const place=C.placeFromFeature({geometry:{type:'Point',coordinates:[-71,42]},properties:{name:'Berlin',countrycode:'US',country:'United States'}});
@@ -16,11 +19,12 @@ test('country comes from geocoder metadata even if city name is ambiguous',()=>{
   assert.equal(C.placeFromFeature({geometry:{type:'Point',coordinates:[0,0]},properties:{name:'Berlin'}}),null);
   assert.equal(C.placeFromFeature({geometry:{type:'Point',coordinates:[181,90]},properties:{countrycode:'DE'}}),null);
 });
-test('local tariff formula, precision, configuration, unsupported countries',()=>{
+test('local tariff formula, precision, configuration',()=>{
   assert.equal(C.quote(C.countries.ru,10,'econom'),570);
   assert.equal(C.quote(C.countries.de,10,'comfort'),41.85);
   assert.equal(C.quote(C.countries.cm,10,'econom'),1900);
-  assert.equal(C.quote(C.countries.jp,10,'econom'),null);
+  // Japan now has demo rates based on JPY currency
+  assert.ok(C.quote(C.countries.jp,10,'econom')>0);
   assert.equal(C.quote(C.countries.ru,10,'econom',{ru:{base:100,km:20}}),300);
   for(const distance of [0,-1,NaN,Infinity])assert.equal(C.quote(C.countries.ru,distance,'econom'),null);
   assert.equal(C.quote(C.countries.ru,10,'invalid'),null);

@@ -29,7 +29,19 @@
     CRC: [2400, 300], PAB: [4, 2.5], DOP: [200, 25], HTG: [500, 60],
     JMD: [600, 75], BBD: [8, 1.2], TTD: [28, 4], XCD: [11, 1.5],
     AWG: [7, 1], BMD: [5, 1.5], BSD: [4, 2.5], KYD: [3.5, 0.8],
-    BZD: [8, 1.2], SRD: [60, 8], GYD: [800, 100]
+    BZD: [8, 1.2], SRD: [60, 8], GYD: [800, 100],
+    ALL: [400, 50], AOA: [3000, 400], BAM: [8, 2], BIF: [8000, 1000],
+    BWP: [40, 6], CDF: [9000, 1200], CVE: [450, 60], CUP: [100, 12],
+    XCG: [7, 1], DJF: [700, 90], ERN: [60, 8], ETB: [200, 25],
+    FKP: [3.5, 0.7], GIP: [3.5, 0.7], GMD: [250, 35], GNF: [35000, 4500],
+    IQD: [5000, 650], IRR: [160000, 20000], KMF: [1800, 240], KPW: [3600, 480],
+    LBP: [60000, 8000], LRD: [600, 80], MGA: [18000, 2400], MKD: [250, 35],
+    MRU: [150, 20], MVR: [60, 8], MWK: [6500, 850], MZN: [250, 35],
+    NAD: [50, 7], RSD: [500, 70], RWF: [5000, 650], SBD: [32, 4.5],
+    SDG: [2400, 320], SHP: [3.5, 0.7], SLE: [90, 12], SOS: [2200, 290],
+    SSP: [5200, 680], STN: [100, 13], SYP: [100000, 13000], SZL: [50, 7],
+    VES: [140, 18], VUV: [450, 60], XPF: [450, 60], YER: [1000, 130],
+    ZMW: [90, 12], ZWG: [1300, 170]
   };
   const currencyData = typeof module === 'object' && module.exports ? require('./country-currencies.js') : root.WaygoCurrencies;
   const names = new Intl.DisplayNames(['ru'], { type: 'region' });

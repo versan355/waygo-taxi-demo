@@ -40,13 +40,13 @@ test('selected city metadata changes country, currency, price and tariff without
     const codes=[...app.el('lang').options].map(o=>o.value);assert.equal(new Set(codes).size,codes.length);
   }finally{app.dom.window.close();}
 });
-test('international route and unconfigured market never receive a fabricated price',async()=>{
-  let code='DE';const app=setup(url=>Promise.resolve(json(url.includes('/api/')?{features:[feature('City',code,code==='DE'?[13,52]:url.includes('Yokohama')?[139.63,35.44]:[139,35])]}:route)));
+test('international route never receives a fabricated price',async()=>{
+  let code='DE';const app=setup(url=>Promise.resolve(json(url.includes('/api/')?{features:[feature('City',code,code==='DE'?[13,52]:[139.63,35.44])]}:route)));
   try{
-    await flush();await app.pick('from','Berlin');assert.match(app.el('routeStatus').textContent,/между странами/);assert.equal(app.el('price').textContent,'—');
-    code='JP';app.input('to','');await app.pick('from','Tokyo');await app.pick('to','Yokohama');
-    assert.equal(app.el('countryName').textContent,'Япония · JPY');assert.equal(app.el('price').textContent,'—');
-    assert.match(app.el('routeStatus').textContent,/тариф ещё не настроен/);
+    await flush();await app.pick('from','Berlin');
+    code='JP';app.input('to','');await app.pick('to','Yokohama');
+    assert.match(app.el('routeStatus').textContent,/между странами/);
+    assert.equal(app.el('price').textContent,'—','International routes should not show a price');
   }finally{app.dom.window.close();}
 });
 test('network failure clears old results and leaves retry available',async()=>{
