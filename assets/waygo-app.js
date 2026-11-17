@@ -73,6 +73,29 @@
       throw error;
     } finally {clearTimeout(timer);}
   }
+  // The public OSRM demo server is rate-limited, so each router gets its own attempt.
+  async function fetchRoute(coords, outer) {
+    const bases = Array.isArray(config.routerUrls) && config.routerUrls.length ? config.routerUrls : [config.routerUrl];
+    let data, last;
+    for (const base of bases) {
+      if (outer.signal.aborted) return null;
+      const attempt = new AbortController();
+      const relay = () => attempt.abort();
+      outer.signal.addEventListener('abort', relay, {once:true});
+      try {
+        const url=new URL(base+coords);url.searchParams.set('overview','full');url.searchParams.set('geometries','geojson');url.searchParams.set('radiuses','5000;5000');
+        data = await request(url, attempt, 20000);
+      } catch (error) {
+        if (outer.signal.aborted) return null;
+        last = error; continue;
+      } finally {
+        outer.signal.removeEventListener('abort', relay);
+      }
+      // The router answered: its verdict is final, no point asking the next one.
+      return C.routeFromResponse(data);
+    }
+    throw last;
+  }
   async function search(id) {
     const query=$(id).value.trim();
     if(query.length<2){status('Введите хотя бы два символа города или адреса.','error');$(id).focus();return;}
@@ -122,9 +145,8 @@
     $('calculate').disabled=true;$('calculate').textContent='Строим маршрут…';$('mapStatus').textContent='Строим маршрут по дорогам…';
     try {
       const coords=[state.from,state.to].map(p=>`${p.point[1]},${p.point[0]}`).join(';');
-      const url=new URL(config.routerUrl+coords);url.searchParams.set('overview','full');url.searchParams.set('geometries','geojson');url.searchParams.set('radiuses','5000;5000');
-      const route=C.routeFromResponse(await request(url,controller,22000));
-      if(state.version!==version)return;
+      const route=await fetchRoute(coords,controller);
+      if(state.version!==version || !route)return;
       state.route=route;
       clearLine();line=L.polyline(route.points,{color:'#708700',weight:5,opacity:.9}).addTo(map);
       map.fitBounds(line.getBounds(),{padding:mapPadding(),maxZoom:15});setSummary();
@@ -135,7 +157,7 @@
     } catch(error) {
       if(state.version!==version)return;
       state.route=null;clearLine();setSummary();
-      status(error.name==='AbortError'?'Сервис маршрутов не ответил вовремя. Повторите расчёт.':error.message,'error');
+      status(error.name==='AbortError'?'Сервисы маршрутов не ответили вовремя. Нажмите «Рассчитать поездку» ещё раз.':error.message,'error');
       $('mapStatus').textContent='Маршрут недоступен. Показаны только выбранные точки.';
     } finally {
       if(state.version===version){$('calculate').disabled=false;$('calculate').textContent='Рассчитать поездку';state.controller=null;}
