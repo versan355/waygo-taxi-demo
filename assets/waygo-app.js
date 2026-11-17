@@ -159,16 +159,20 @@
       const relay = () => attempt.abort();
       outer.signal.addEventListener('abort', relay, {once:true});
       try {
-        const url=new URL(base+coords);url.searchParams.set('overview','full');url.searchParams.set('geometries','geojson');
+        const isLocationIQ = base.includes('locationiq');
+        const url = new URL(`${base.replace(/\/+$/,'')}/${coords}`);
         // LocationIQ speaks OSRM, but only with a key. Without one the service is skipped.
-        if (url.hostname.includes('locationiq')) {
+        if (isLocationIQ) {
           if (!hasKey()) throw new Error('LocationIQ key not configured');
           url.searchParams.set('key', config.locationiqKey);
         }
+        url.searchParams.set('overview','full');
+        url.searchParams.set('geometries','geojson');
         // Remove radiuses parameter — can cause matching issues on some OSRM servers
         data = await request(url, attempt, 35000);
       } catch (error) {
         if (outer.signal.aborted) return null;
+        console.warn(`Router ${hostOf(base)} failed:`, error.message || error);
         last = error; continue;
       } finally {
         outer.signal.removeEventListener('abort', relay);

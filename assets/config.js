@@ -12,11 +12,11 @@ window.WAYGO_CONFIG = {
     'https://nominatim.openstreetmap.org/search'
   ],
   // Tried in order. LocationIQ needs the key above; the public OSRM demos are rate-limited
-  // and are blocked on some mobile networks.
+  // and are blocked on some mobile networks. LocationIQ coordinates go into the path itself.
   routerUrls: [
-    'https://us1.locationiq.com/v1/directions/driving/',
-    'https://routing.openstreetmap.de/routed-car/route/v1/driving/',
-    'https://router.project-osrm.org/route/v1/driving/'
+    'https://us1.locationiq.com/v1/directions/driving',
+    'https://routing.openstreetmap.de/routed-car/route/v1/driving',
+    'https://router.project-osrm.org/route/v1/driving'
   ],
   routerUrl: 'https://router.project-osrm.org/route/v1/driving/',
   // Approved local rates: ru: {base: 250, km: 32}. Values use the country's currency.
