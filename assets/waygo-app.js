@@ -83,8 +83,9 @@
       const relay = () => attempt.abort();
       outer.signal.addEventListener('abort', relay, {once:true});
       try {
-        const url=new URL(base+coords);url.searchParams.set('overview','full');url.searchParams.set('geometries','geojson');url.searchParams.set('radiuses','5000;5000');
-        data = await request(url, attempt, 20000);
+        const url=new URL(base+coords);url.searchParams.set('overview','full');url.searchParams.set('geometries','geojson');
+        // Remove radiuses parameter — can cause matching issues on some OSRM servers
+        data = await request(url, attempt, 35000);
       } catch (error) {
         if (outer.signal.aborted) return null;
         last = error; continue;
