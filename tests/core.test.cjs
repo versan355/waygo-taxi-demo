@@ -35,6 +35,15 @@ test('real geometry, kilometers and duration use route response',()=>{
   assert.equal(route.distance,12.5);assert.equal(route.minutes,13);assert.deepEqual(route.points[1],[52.1,13.1]);
   for(const data of [{code:'NoRoute'}, {code:'Ok',routes:[]},{code:'Ok',routes:[{distance:0,duration:0}]}])assert.throws(()=>C.routeFromResponse(data));
 });
+test('straight-line estimate is longer than the straight line and always flagged',()=>{
+  const moscow=[55.75,37.61], spb=[59.94,30.31];
+  const estimate=C.estimateRoute(moscow,spb);
+  assert.equal(estimate.estimated,true);
+  assert.ok(estimate.distance>C.distanceBetween(moscow,spb)/1000);
+  assert.equal(estimate.points.length,2);
+  assert.ok(estimate.minutes>0);
+  assert.equal(C.estimateRoute(moscow,[55.7505,37.6105]),null);
+});
 test('coincident points can be rejected before routing',()=>{
   assert.equal(C.distanceBetween([52,13],[52,13]),0);
   assert.ok(C.distanceBetween([52,13],[52.01,13])>1000);

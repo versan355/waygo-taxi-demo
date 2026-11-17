@@ -95,7 +95,14 @@
     const rad = Math.PI/180, dlat=(b[0]-a[0])*rad, dlon=(b[1]-a[1])*rad;
     return 6371000 * 2 * Math.asin(Math.sqrt(Math.sin(dlat/2)**2+Math.cos(a[0]*rad)*Math.cos(b[0]*rad)*Math.sin(dlon/2)**2));
   }
-  const api = {countries,tariffs,countryInfo,money,currencyText,quote,placeFromFeature,routeFromResponse,distanceBetween};
+  function estimateRoute(from,to) {
+    const straight=distanceBetween(from,to)/1000;
+    if(straight<1)return null;
+    const distance=straight*1.4;
+    const minutes=Math.max(1,Math.ceil(distance/(40/60)));
+    return {distance,minutes,points:[from,to],estimated:true};
+  }
+  const api = {countries,tariffs,countryInfo,money,currencyText,quote,placeFromFeature,routeFromResponse,distanceBetween,estimateRoute};
   if (typeof module === 'object' && module.exports) module.exports = api;
   else root.WaygoCore = api;
 })(typeof globalThis !== 'undefined' ? globalThis : this);

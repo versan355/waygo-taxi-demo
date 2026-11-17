@@ -37,7 +37,7 @@
     document.querySelectorAll('[data-rate]').forEach(el=>{
       el.textContent=Number.isFinite(rate?.km) ? `${C.money(rate.km*C.tariffs[el.dataset.rate].mult,country.currency)} / км · ${config.ratesAreDemo?'демо':'тариф'}` : 'Выберите страну отправления';
     });
-    $('orderSummary').textContent = $('requestType').value==='connect' ? 'Подключение к сервису заказов. Укажите город работы, а в комментарии — название компании и пожелания к подключению.' : [state.from?`Откуда: ${state.from.label}`:'Маршрут пока не выбран.',state.to?`Куда: ${state.to.label}`:'',country?`Страна отправления: ${country.name}. Валюта: ${C.currencyText(country)}.`:'',route?`По дороге: ${route.distance.toFixed(1)} км, ≈ ${route.minutes} мин.`:'',price!==null?`${rateLabel()}: ${C.money(price,country.currency)} · ${C.tariffs[$('tariff').value].name}.`:'Стоимость не рассчитана.'].filter(Boolean).join('\n');
+    $('orderSummary').textContent = $('requestType').value==='connect' ? 'Подключение к сервису заказов. Укажите город работы, а в комментарии — название компании и пожелания к подключению.' : [state.from?`Откуда: ${state.from.label}`:'Маршрут пока не выбран.',state.to?`Куда: ${state.to.label}`:'',country?`Страна отправления: ${country.name}. Валюта: ${C.currencyText(country)}.`:'',route?`${route.estimated?'Ориентировочно, по прямой (сервисы маршрутов были недоступны)':'По дороге'}: ${route.distance.toFixed(1)} км, ≈ ${route.minutes} мин.`:'',price!==null?`${rateLabel()}: ${C.money(price,country.currency)} · ${C.tariffs[$('tariff').value].name}.`:'Стоимость не рассчитана.'].filter(Boolean).join('\n');
   }
   function clearLine() { if(line && map) {line.remove();line=null;} }
   function invalidate(message='Маршрут изменён. Рассчитайте поездку заново.') {
@@ -150,6 +150,9 @@
       // The router answered: its verdict is final, no point asking the next one.
       return C.routeFromResponse(data);
     }
+    // All routers failed: estimate by straight-line distance with typical road detour
+    const estimate = C.estimateRoute(state.from.point,state.to.point);
+    if (estimate) return estimate;
     throw last;
   }
   async function search(id) {
@@ -200,10 +203,17 @@
       const route=await fetchRoute(coords,controller);
       if(state.version!==version || !route)return;
       state.route=route;
-      clearLine();line=L.polyline(route.points,{color:'#708700',weight:5,opacity:.9}).addTo(map);
+      clearLine();
+      if(route.estimated){
+        line=L.polyline(route.points,{color:'#708700',weight:3,opacity:.5,dashArray:'8,6'}).addTo(map);
+        $('mapStatus').textContent='Расстояние по прямой × 1.4 (сервисы маршрутов недоступны)';
+      } else {
+        line=L.polyline(route.points,{color:'#708700',weight:5,opacity:.9}).addTo(map);
+        $('mapStatus').textContent='Автомобильный маршрут · OpenStreetMap / OSRM';
+      }
       map.fitBounds(line.getBounds(),{padding:mapPadding(),maxZoom:15});setSummary();
-      $('mapStatus').textContent='Автомобильный маршрут · OpenStreetMap / OSRM';
       if(state.from.code!==state.to.code)status('Маршрут проходит между странами. Валюта указана по месту отправления; цену международной поездки нужно согласовать в заявке.');
+      else if(route.estimated)status('Расстояние оценено приблизительно — сервисы маршрутов недоступны. Стоимость для справки.');
       else if(C.quote(currentCountry(),route.distance,$('tariff').value,config.rates)===null)status('Маршрут построен. Для этой страны тариф ещё не настроен — уточните стоимость в заявке.');
       else status(`Маршрут построен. ${config.ratesAreDemo?'Стоимость рассчитана по демонстрационным ставкам.':'Стоимость предварительная.'}`);
     } catch(error) {

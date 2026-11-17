@@ -49,12 +49,17 @@ test('international route never receives a fabricated price',async()=>{
     assert.equal(app.el('price').textContent,'—','International routes should not show a price');
   }finally{app.dom.window.close();}
 });
-test('network failure clears old results and leaves retry available',async()=>{
+test('router failure falls back to an estimate that is always marked as one',async()=>{
   let fail=false;const app=setup(()=>Promise.resolve(fail?{ok:false,status:503}:json(route)));
   try{
-    await flush();assert.notEqual(app.el('price').textContent,'—');fail=true;app.el('calculate').click();await flush();
-    assert.equal(app.el('price').textContent,'—');assert.match(app.el('routeStatus').textContent,/503/);assert.equal(app.el('calculate').disabled,false);
-    assert.ok(app.lines[0].removed);
+    await flush();const exact=app.el('price').textContent;assert.notEqual(exact,'—');
+    fail=true;app.el('calculate').click();await flush();
+    assert.ok(app.lines[0].removed,'stale geometry is dropped');
+    assert.match(app.el('routeStatus').textContent,/приблизительно/);
+    assert.match(app.el('mapStatus').textContent,/по прямой/i);
+    assert.match(app.el('orderSummary').textContent,/Ориентировочно/);
+    assert.notEqual(app.el('price').textContent,exact,'estimate must not reuse the routed price');
+    assert.equal(app.el('calculate').disabled,false);
   }finally{app.dom.window.close();}
 });
 test('late search results do not resurrect after text changes',async()=>{
