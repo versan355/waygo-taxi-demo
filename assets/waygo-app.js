@@ -65,11 +65,11 @@
   async function request(url,controller,timeout=25000) {
     const timer=setTimeout(()=>controller.abort(),timeout);
     try {
-      const response=await fetch(url,{signal:controller.signal,headers:{Accept:'application/json'}});
+      const response=await fetch(url,{signal:controller.signal,cache:'no-store',headers:{Accept:'application/json'}});
       if(!response.ok)throw new Error(`Сервис временно недоступен (${response.status}). Попробуйте позже.`);
       return await response.json();
     } catch(error) {
-      if(error.name==='TypeError')throw new Error('Не удалось подключиться к сервису. Проверьте интернет-соединение.');
+      if(error.name==='TypeError')throw new Error(navigator.onLine===false ? 'Нет подключения к интернету. Проверьте мобильные данные или Wi‑Fi.' : 'Сервис временно недоступен. Проверьте интернет-соединение и повторите попытку.');
       if(error.name==='SyntaxError')throw new Error('Сервис вернул некорректные данные. Попробуйте ещё раз.');
       throw error;
     } finally {clearTimeout(timer);}
