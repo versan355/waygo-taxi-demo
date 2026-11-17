@@ -64,6 +64,7 @@
   }
   // The host is named in every message: on mobile networks a single provider is often blocked.
   const hostOf = url => { try { return new URL(url).hostname; } catch { return String(url); } };
+  const hasKey = () => Boolean(config.locationiqKey) && config.locationiqKey !== 'YOUR_LOCATIONIQ_KEY';
   async function request(url,controller,timeout=25000) {
     const host=hostOf(url);
     const timer=setTimeout(()=>controller.abort(),timeout);
@@ -101,16 +102,36 @@
       const relay=()=>attempt.abort();
       controller.signal.addEventListener('abort',relay,{once:true});
       try {
-        const url=new URL(base);url.searchParams.set('q',query);url.searchParams.set('limit','6');
-        // Nominatim names the filter countrycodes (lowercase); Photon uses countrycode.
-        if (filter) url.hostname.includes('nominatim')
-          ? url.searchParams.set('countrycodes',filter.toLowerCase())
-          : url.searchParams.set('countrycode',filter.toUpperCase());
-        if (url.hostname.includes('nominatim')) {
-          url.searchParams.set('format','jsonv2');url.searchParams.set('addressdetails','1');url.searchParams.set('accept-language','ru');
+        const url=new URL(base);
+        const isLocationIQ=url.hostname.includes('locationiq');
+        const isNominatim=url.hostname.includes('nominatim');
+        
+        if (isLocationIQ) {
+          // LocationIQ uses the same format as Nominatim but requires an API key
+          if (!hasKey()) throw new Error('LocationIQ key not configured');
+          url.searchParams.set('key',config.locationiqKey);
+          url.searchParams.set('q',query);
+          url.searchParams.set('format','json');
+          url.searchParams.set('addressdetails','1');
+          url.searchParams.set('accept-language','ru');
+          url.searchParams.set('limit','6');
+          if (filter) url.searchParams.set('countrycodes',filter.toLowerCase());
+        } else {
+          url.searchParams.set('q',query);
+          url.searchParams.set('limit','6');
+          // Nominatim names the filter countrycodes (lowercase); Photon uses countrycode.
+          if (filter) isNominatim
+            ? url.searchParams.set('countrycodes',filter.toLowerCase())
+            : url.searchParams.set('countrycode',filter.toUpperCase());
+          if (isNominatim) {
+            url.searchParams.set('format','jsonv2');
+            url.searchParams.set('addressdetails','1');
+            url.searchParams.set('accept-language','ru');
+          }
         }
+        
         const data=await request(url,attempt);
-        const features=url.hostname.includes('nominatim') ? nominatimFeatures(data) : (Array.isArray(data.features) ? data.features : null);
+        const features=(isLocationIQ || isNominatim) ? nominatimFeatures(data) : (Array.isArray(data.features) ? data.features : null);
         if (!features) { malformed=true; throw new Error('Сервис поиска вернул некорректный ответ.'); }
         const places=features.map(C.placeFromFeature).filter(Boolean);
         if (places.length) return places;
@@ -139,6 +160,11 @@
       outer.signal.addEventListener('abort', relay, {once:true});
       try {
         const url=new URL(base+coords);url.searchParams.set('overview','full');url.searchParams.set('geometries','geojson');
+        // LocationIQ speaks OSRM, but only with a key. Without one the service is skipped.
+        if (url.hostname.includes('locationiq')) {
+          if (!hasKey()) throw new Error('LocationIQ key not configured');
+          url.searchParams.set('key', config.locationiqKey);
+        }
         // Remove radiuses parameter — can cause matching issues on some OSRM servers
         data = await request(url, attempt, 35000);
       } catch (error) {
