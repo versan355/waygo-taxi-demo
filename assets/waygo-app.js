@@ -2,7 +2,7 @@
   'use strict';
   const C = window.WaygoCore, config = window.WAYGO_CONFIG;
   const $ = id => document.getElementById(id);
-  const state = {from:null,to:null,route:null,version:0,controller:null};
+  const state = {from:null,to:null,route:null,version:0,controller:null,routerDiag:[]};
   const searches = {}, cache = new Map();
   let map, markers = [], line;
   const mapPadding = () => [Math.min(140,map.getSize().x/4),75];
@@ -38,6 +38,7 @@
       el.textContent=Number.isFinite(rate?.km) ? `${C.money(rate.km*C.tariffs[el.dataset.rate].mult,country.currency)} / км · ${config.ratesAreDemo?'демо':'тариф'}` : 'Выберите страну отправления';
     });
     $('orderSummary').textContent = $('requestType').value==='connect' ? 'Подключение к сервису заказов. Укажите город работы, а в комментарии — название компании и пожелания к подключению.' : [state.from?`Откуда: ${state.from.label}`:'Маршрут пока не выбран.',state.to?`Куда: ${state.to.label}`:'',country?`Страна отправления: ${country.name}. Валюта: ${C.currencyText(country)}.`:'',route?`${route.estimated?'Ориентировочно, по прямой (сервисы маршрутов были недоступны)':'По дороге'}: ${route.distance.toFixed(1)} км, ≈ ${route.minutes} мин.`:'',price!==null?`${rateLabel()}: ${C.money(price,country.currency)} · ${C.tariffs[$('tariff').value].name}.`:'Стоимость не рассчитана.'].filter(Boolean).join('\n');
+    $('routerDiag').textContent = state.routerDiag.length ? `Диагностика: ${state.routerDiag.join('; ')}.` : '';
   }
   function clearLine() { if(line && map) {line.remove();line=null;} }
   function invalidate(message='Маршрут изменён. Рассчитайте поездку заново.') {
@@ -65,17 +66,22 @@
   // The host is named in every message: on mobile networks a single provider is often blocked.
   const hostOf = url => { try { return new URL(url).hostname; } catch { return String(url); } };
   const hasKey = () => Boolean(config.locationiqKey) && config.locationiqKey !== 'YOUR_LOCATIONIQ_KEY';
+  // error.reason is a short cause shown on the page: an HTTP code tells a refusal
+  // apart from a connection that never opened.
+  const mark = (error, reason) => { error.reason = reason; return error; };
   async function request(url,controller,timeout=25000) {
     const host=hostOf(url);
-    const timer=setTimeout(()=>controller.abort(),timeout);
+    let timedOut=false;
+    const timer=setTimeout(()=>{timedOut=true;controller.abort();},timeout);
     try {
       const response=await fetch(url,{signal:controller.signal,cache:'no-store',headers:{Accept:'application/json'}});
-      if(!response.ok)throw new Error(`Сервис ${host} временно недоступен (${response.status}). Попробуйте позже.`);
+      if(!response.ok)throw mark(new Error(`Сервис ${host} временно недоступен (${response.status}). Попробуйте позже.`),`ответил ${response.status}`);
       return await response.json();
     } catch(error) {
-      if(error.name==='TypeError')throw new Error(navigator.onLine===false ? 'Нет подключения к интернету. Проверьте мобильные данные или Wi‑Fi.' : `Не удалось соединиться с ${host}. Сервис может быть заблокирован Вашим мобильным оператором или сетью.`);
-      if(error.name==='SyntaxError')throw new Error(`Сервис ${host} вернул некорректные данные. Попробуйте ещё раз.`);
-      throw error;
+      if(error.name==='AbortError')throw mark(error,timedOut?`молчит дольше ${Math.round(timeout/1000)} с`:'запрос отменён');
+      if(error.name==='TypeError')throw mark(new Error(navigator.onLine===false ? 'Нет подключения к интернету. Проверьте мобильные данные или Wi‑Fi.' : `Не удалось соединиться с ${host}. Сервис может быть заблокирован Вашим мобильным оператором или сетью.`),navigator.onLine===false?'нет интернета':'соединение не установлено');
+      if(error.name==='SyntaxError')throw mark(new Error(`Сервис ${host} вернул некорректные данные. Попробуйте ещё раз.`),'ответ не разобран');
+      throw mark(error,error.reason||'ошибка');
     } finally {clearTimeout(timer);}
   }
   function nominatimFeatures(data) {
@@ -153,6 +159,7 @@
   async function fetchRoute(coords, outer) {
     const bases = Array.isArray(config.routerUrls) && config.routerUrls.length ? config.routerUrls : [config.routerUrl];
     let data, last;
+    state.routerDiag = [];
     for (const base of bases) {
       if (outer.signal.aborted) return null;
       const attempt = new AbortController();
@@ -173,11 +180,13 @@
       } catch (error) {
         if (outer.signal.aborted) return null;
         console.warn(`Router ${hostOf(base)} failed:`, error.message || error);
+        state.routerDiag.push(`${hostOf(base)} — ${error.reason || 'ошибка'}`);
         last = error; continue;
       } finally {
         outer.signal.removeEventListener('abort', relay);
       }
       // The router answered: its verdict is final, no point asking the next one.
+      state.routerDiag = [];
       return C.routeFromResponse(data);
     }
     // All routers failed: estimate by straight-line distance with typical road detour

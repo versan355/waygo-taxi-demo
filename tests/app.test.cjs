@@ -58,6 +58,10 @@ test('router failure falls back to an estimate that is always marked as one',asy
     assert.match(app.el('routeStatus').textContent,/приблизительно/);
     assert.match(app.el('mapStatus').textContent,/по прямой/i);
     assert.match(app.el('orderSummary').textContent,/Ориентировочно/);
+    const diag=app.el('routerDiag').textContent;
+    assert.match(diag,/Диагностика/);
+    assert.match(diag,/locationiq\.com — ответил 503/);
+    assert.match(diag,/router\.project-osrm\.org — ответил 503/);
     assert.notEqual(app.el('price').textContent,exact,'estimate must not reuse the routed price');
     assert.equal(app.el('calculate').disabled,false);
   }finally{app.dom.window.close();}
