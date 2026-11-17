@@ -100,7 +100,8 @@
     }).filter(Boolean);
   }
   async function searchGeocoder(query,filter,controller) {
-    const bases=Array.isArray(config.geocoderUrls) && config.geocoderUrls.length ? config.geocoderUrls : [config.geocoderUrl];
+    const configured=Array.isArray(config.geocoderUrls) && config.geocoderUrls.length ? config.geocoderUrls : [config.geocoderUrl];
+    const bases=configured.filter(base => hasKey() || !base.includes('locationiq'));
     let last, malformed=false, sawEmpty=false;
     for (const base of bases) {
       if (controller.signal.aborted) throw new DOMException('Aborted','AbortError');
@@ -114,7 +115,6 @@
         
         if (isLocationIQ) {
           // LocationIQ uses the same format as Nominatim but requires an API key
-          if (!hasKey()) throw new Error('LocationIQ key not configured');
           url.searchParams.set('key',config.locationiqKey);
           url.searchParams.set('q',query);
           url.searchParams.set('format','json');
@@ -165,14 +165,12 @@
       const attempt = new AbortController();
       const relay = () => attempt.abort();
       outer.signal.addEventListener('abort', relay, {once:true});
+      const isLocationIQ = base.includes('locationiq');
+      // LocationIQ speaks OSRM, but only with a key. Without one it is never called.
+      if (isLocationIQ && !hasKey()) { outer.signal.removeEventListener('abort', relay); continue; }
       try {
-        const isLocationIQ = base.includes('locationiq');
         const url = new URL(`${base.replace(/\/+$/,'')}/${coords}`);
-        // LocationIQ speaks OSRM, but only with a key. Without one the service is skipped.
-        if (isLocationIQ) {
-          if (!hasKey()) throw new Error('LocationIQ key not configured');
-          url.searchParams.set('key', config.locationiqKey);
-        }
+        if (isLocationIQ) url.searchParams.set('key', config.locationiqKey);
         url.searchParams.set('overview','full');
         url.searchParams.set('geometries','geojson');
         // Remove radiuses parameter — can cause matching issues on some OSRM servers

@@ -4,7 +4,9 @@ window.WAYGO_CONFIG = {
   geocoderUrl: 'https://photon.komoot.io/api/',
   // Get your free LocationIQ key at https://locationiq.com/ (5000 requests/day, no credit card)
   // Restrict the token to versan355.github.io in the dashboard to prevent abuse
-  locationiqKey: 'pk.a383cd9f627e3a5ed57b74973c74fc6d',
+  // Checked 2026-11-17: this token is refused with HTTP 403 on both search and directions.
+  // Disabled until it works; LocationIQ is skipped while the key is empty.
+  locationiqKey: '',
   // Mobile networks occasionally block or time out Photon; LocationIQ uses a different domain.
   geocoderUrls: [
     'https://us1.locationiq.com/v1/search',
