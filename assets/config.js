@@ -2,6 +2,11 @@ window.WAYGO_CONFIG = {
   orderEmail: 'verrssan@gmail.com',
   // Public URLs only. Never put API secrets in this file.
   geocoderUrl: 'https://photon.komoot.io/api/',
+  // Mobile networks occasionally block or time out Photon; use Nominatim as a fallback.
+  geocoderUrls: [
+    'https://photon.komoot.io/api/',
+    'https://nominatim.openstreetmap.org/search'
+  ],
   // Tried in order: the public OSRM demo server is rate-limited and often slow.
   routerUrls: [
     'https://routing.openstreetmap.de/routed-car/route/v1/driving/',

@@ -62,16 +62,59 @@
     searches[id]?.abort(); delete searches[id];
     $(`${id}Search`).disabled=false; $(`${id}Search`).textContent='Найти';
   }
-  async function request(url,controller,timeout=16000) {
+  async function request(url,controller,timeout=25000) {
     const timer=setTimeout(()=>controller.abort(),timeout);
     try {
       const response=await fetch(url,{signal:controller.signal,headers:{Accept:'application/json'}});
       if(!response.ok)throw new Error(`Сервис временно недоступен (${response.status}). Попробуйте позже.`);
       return await response.json();
     } catch(error) {
-      if(error.name==='TypeError' || error.name==='SyntaxError')throw new Error('Не удалось получить данные сервиса. Проверьте интернет и попробуйте ещё раз.');
+      if(error.name==='TypeError')throw new Error('Не удалось подключиться к сервису. Проверьте интернет-соединение.');
+      if(error.name==='SyntaxError')throw new Error('Сервис вернул некорректные данные. Попробуйте ещё раз.');
       throw error;
     } finally {clearTimeout(timer);}
+  }
+  function nominatimFeatures(data) {
+    if (!Array.isArray(data)) return null;
+    return data.map(item => {
+      const lat=Number(item.lat), lon=Number(item.lon), a=item.address || {};
+      if (!Number.isFinite(lat) || !Number.isFinite(lon) || Math.abs(lat)>90 || Math.abs(lon)>180) return null;
+      const code=String(a.country_code || '').toLowerCase();
+      if (!/^[a-z]{2}$/.test(code)) return null;
+      return {geometry:{type:'Point',coordinates:[lon,lat]},properties:{
+        name:a.road || a.city || a.town || a.village || item.display_name,
+        street:a.road, housenumber:a.house_number,
+        city:a.city || a.town || a.village || a.municipality,
+        state:a.state, countrycode:code, country:a.country
+      }};
+    }).filter(Boolean);
+  }
+  async function searchGeocoder(query,filter,controller) {
+    const bases=Array.isArray(config.geocoderUrls) && config.geocoderUrls.length ? config.geocoderUrls : [config.geocoderUrl];
+    let last, malformed=false, sawEmpty=false;
+    for (const base of bases) {
+      if (controller.signal.aborted) throw new DOMException('Aborted','AbortError');
+      try {
+        const url=new URL(base);url.searchParams.set('q',query);url.searchParams.set('limit','6');
+        if (filter) url.searchParams.set('countrycode',filter.toUpperCase());
+        if (url.hostname.includes('nominatim')) {
+          url.searchParams.set('format','jsonv2');url.searchParams.set('addressdetails','1');url.searchParams.set('accept-language','ru');
+        }
+        const data=await request(url,controller);
+        const features=url.hostname.includes('nominatim') ? nominatimFeatures(data) : (Array.isArray(data.features) ? data.features : null);
+        if (!features) { malformed=true; throw new Error('Сервис поиска вернул некорректный ответ.'); }
+        const places=features.map(C.placeFromFeature).filter(Boolean);
+        if (places.length) return places;
+        sawEmpty=true;
+        last=new Error('Адрес не найден.');
+      } catch(error) {
+        if (error.name==='AbortError') throw error;
+        last=error;
+      }
+    }
+    if (sawEmpty) return [];
+    if (malformed) throw new Error('Сервис поиска вернул некорректный ответ. Попробуйте позже.');
+    throw new Error('Не удалось получить данные сервиса. Проверьте интернет-соединение и попробуйте ещё раз.');
   }
   // The public OSRM demo server is rate-limited, so each router gets its own attempt.
   async function fetchRoute(coords, outer) {
@@ -109,11 +152,7 @@
       const key=`${filter}|${query.toLowerCase()}`;
       let places=cache.get(key);
       if(!places){
-        const url=new URL(config.geocoderUrl);url.searchParams.set('q',query);url.searchParams.set('limit','6');
-        if(filter)url.searchParams.set('countrycode',filter.toUpperCase());
-        const data=await request(url,controller);
-        if(!Array.isArray(data.features))throw new Error('Сервис поиска вернул некорректный ответ. Попробуйте позже.');
-        places=data.features.map(C.placeFromFeature).filter(Boolean);
+        places=await searchGeocoder(query,filter,controller);
         if(cache.size>80)cache.clear();cache.set(key,places);
       }
       if(searches[id]!==controller || $(id).value.trim()!==query || $('lang').value!==filter)return;
