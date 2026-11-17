@@ -94,13 +94,16 @@
     let last, malformed=false, sawEmpty=false;
     for (const base of bases) {
       if (controller.signal.aborted) throw new DOMException('Aborted','AbortError');
+      const attempt=new AbortController();
+      const relay=()=>attempt.abort();
+      controller.signal.addEventListener('abort',relay,{once:true});
       try {
         const url=new URL(base);url.searchParams.set('q',query);url.searchParams.set('limit','6');
         if (filter) url.searchParams.set('countrycode',filter.toUpperCase());
         if (url.hostname.includes('nominatim')) {
           url.searchParams.set('format','jsonv2');url.searchParams.set('addressdetails','1');url.searchParams.set('accept-language','ru');
         }
-        const data=await request(url,controller);
+        const data=await request(url,attempt);
         const features=url.hostname.includes('nominatim') ? nominatimFeatures(data) : (Array.isArray(data.features) ? data.features : null);
         if (!features) { malformed=true; throw new Error('Сервис поиска вернул некорректный ответ.'); }
         const places=features.map(C.placeFromFeature).filter(Boolean);
@@ -108,8 +111,10 @@
         sawEmpty=true;
         last=new Error('Адрес не найден.');
       } catch(error) {
-        if (error.name==='AbortError') throw error;
+        if (error.name==='AbortError' && controller.signal.aborted) throw error;
         last=error;
+      } finally {
+        controller.signal.removeEventListener('abort',relay);
       }
     }
     if (sawEmpty) return [];
