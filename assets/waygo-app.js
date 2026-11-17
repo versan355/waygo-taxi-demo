@@ -62,15 +62,18 @@
     searches[id]?.abort(); delete searches[id];
     $(`${id}Search`).disabled=false; $(`${id}Search`).textContent='Найти';
   }
+  // The host is named in every message: on mobile networks a single provider is often blocked.
+  const hostOf = url => { try { return new URL(url).hostname; } catch { return String(url); } };
   async function request(url,controller,timeout=25000) {
+    const host=hostOf(url);
     const timer=setTimeout(()=>controller.abort(),timeout);
     try {
       const response=await fetch(url,{signal:controller.signal,cache:'no-store',headers:{Accept:'application/json'}});
-      if(!response.ok)throw new Error(`Сервис временно недоступен (${response.status}). Попробуйте позже.`);
+      if(!response.ok)throw new Error(`Сервис ${host} временно недоступен (${response.status}). Попробуйте позже.`);
       return await response.json();
     } catch(error) {
-      if(error.name==='TypeError')throw new Error(navigator.onLine===false ? 'Нет подключения к интернету. Проверьте мобильные данные или Wi‑Fi.' : 'Сервис временно недоступен. Проверьте интернет-соединение и повторите попытку.');
-      if(error.name==='SyntaxError')throw new Error('Сервис вернул некорректные данные. Попробуйте ещё раз.');
+      if(error.name==='TypeError')throw new Error(navigator.onLine===false ? 'Нет подключения к интернету. Проверьте мобильные данные или Wi‑Fi.' : `Не удалось соединиться с ${host}. Сервис может быть заблокирован Вашим мобильным оператором или сетью.`);
+      if(error.name==='SyntaxError')throw new Error(`Сервис ${host} вернул некорректные данные. Попробуйте ещё раз.`);
       throw error;
     } finally {clearTimeout(timer);}
   }
@@ -99,7 +102,10 @@
       controller.signal.addEventListener('abort',relay,{once:true});
       try {
         const url=new URL(base);url.searchParams.set('q',query);url.searchParams.set('limit','6');
-        if (filter) url.searchParams.set('countrycode',filter.toUpperCase());
+        // Nominatim names the filter countrycodes (lowercase); Photon uses countrycode.
+        if (filter) url.hostname.includes('nominatim')
+          ? url.searchParams.set('countrycodes',filter.toLowerCase())
+          : url.searchParams.set('countrycode',filter.toUpperCase());
         if (url.hostname.includes('nominatim')) {
           url.searchParams.set('format','jsonv2');url.searchParams.set('addressdetails','1');url.searchParams.set('accept-language','ru');
         }
@@ -119,7 +125,8 @@
     }
     if (sawEmpty) return [];
     if (malformed) throw new Error('Сервис поиска вернул некорректный ответ. Попробуйте позже.');
-    throw new Error('Не удалось получить данные сервиса. Проверьте интернет-соединение и попробуйте ещё раз.');
+    if (navigator.onLine===false) throw new Error('Нет подключения к интернету. Проверьте мобильные данные или Wi‑Fi.');
+    throw new Error(`Не удалось соединиться с сервисами поиска (${bases.map(hostOf).join(', ')}). Возможно, они заблокированы Вашим мобильным оператором или сетью.`);
   }
   // The public OSRM demo server is rate-limited, so each router gets its own attempt.
   async function fetchRoute(coords, outer) {
