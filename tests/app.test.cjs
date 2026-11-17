@@ -63,10 +63,10 @@ test('router failure falls back to an estimate that is always marked as one',asy
   }finally{app.dom.window.close();}
 });
 test('late search results do not resurrect after text changes',async()=>{
-  let resolve;const app=setup(url=>url.includes('/api/')?new Promise(r=>resolve=r):Promise.resolve(json(route)));
+  let resolve;const app=setup(url=>url.includes('/api/')||url.includes('locationiq')||url.includes('nominatim')?new Promise(r=>resolve=r):Promise.resolve(json(route)));
   try{
     await flush();app.input('from','Berlin');app.el('fromSearch').click();app.input('from','Paris');
-    resolve(json({features:[feature('Berlin','DE',[13,52])]}));await flush();
+    if(resolve)resolve(json({features:[feature('Berlin','DE',[13,52])]}));await flush();
     assert.equal(app.el('fromResults').children.length,0);assert.equal(app.el('price').textContent,'—');
   }finally{app.dom.window.close();}
 });

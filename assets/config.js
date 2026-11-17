@@ -3,8 +3,8 @@ window.WAYGO_CONFIG = {
   // Public URLs only. Never put API secrets in this file.
   geocoderUrl: 'https://photon.komoot.io/api/',
   // Get your free LocationIQ key at https://locationiq.com/ (5000 requests/day, no credit card)
-  // Replace 'YOUR_LOCATIONIQ_KEY' with your actual token from the dashboard
-  locationiqKey: 'YOUR_LOCATIONIQ_KEY',
+  // Restrict the token to versan355.github.io in the dashboard to prevent abuse
+  locationiqKey: 'pk.a383cd9f627e3a5ed57b74973c74fc6d',
   // Mobile networks occasionally block or time out Photon; LocationIQ uses a different domain.
   geocoderUrls: [
     'https://us1.locationiq.com/v1/search',
